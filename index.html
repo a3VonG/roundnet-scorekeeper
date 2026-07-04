@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0E1116">
+<title>Roundnet Scorekeeper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" async></script>
+<style>
+  :root{
+    --court:#0E1116; --panel:#171C23; --line:#26303B; --ball:#FFD23F;
+    --team-a:#FF6B5E; --team-b:#55C1FF; --text:#F2F5F7; --muted:#8A97A5; --radius:18px; --ok:#4ADE80;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{background:var(--court);color:var(--text);font-family:'Archivo',system-ui,-apple-system,sans-serif;font-stretch:95%;
+    max-width:480px;margin:0 auto;padding:12px 14px calc(16px + env(safe-area-inset-bottom))}
+  h1{font-size:15px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:center}
+  h1 .dot{color:var(--ball)}
+  #gameSub{text-align:center;font-size:12px;font-weight:700;color:var(--ball);margin-top:3px;min-height:15px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .screen{display:none;margin-top:10px}
+  .screen.active{display:block}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+  .card h2{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px}
+  .card h2.a{color:var(--team-a)} .card h2.b{color:var(--team-b)} .card h2.n{color:var(--muted)}
+  .field{margin-bottom:10px}.field:last-child{margin-bottom:0}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+  input[type=text],input[type=number],select{width:100%;padding:12px;font-size:16px;font-family:inherit;background:var(--court);
+    color:var(--text);border:1px solid var(--line);border-radius:12px;outline:none;appearance:none;-webkit-appearance:none;
+    -webkit-user-select:text;user-select:text;touch-action:manipulation}
+  button{touch-action:manipulation}
+  .seg,.actions,.underrow,.topbar,.board,.serve,.side .pts,h1,#setLine{-webkit-user-select:none;user-select:none}
+  input:focus,select:focus{border-color:var(--ball)}
+  .row{display:flex;gap:10px}.row>*{flex:1}
+  .seg{display:flex;gap:6px}
+  .seg button{flex:1;padding:11px 0;font-size:15px;font-weight:700;font-family:inherit;background:var(--court);color:var(--muted);
+    border:1px solid var(--line);border-radius:12px;cursor:pointer}
+  .seg button.on{background:var(--ball);color:#141414;border-color:var(--ball)}
+  .hint{font-size:12px;color:var(--muted);line-height:1.45;margin-top:8px}.hint b{color:var(--text)}
+  button.primary{width:100%;padding:16px;font-size:17px;font-weight:800;font-family:inherit;letter-spacing:.04em;text-transform:uppercase;
+    background:var(--ball);color:#141414;border:none;border-radius:var(--radius);cursor:pointer}
+  button:active{transform:scale(.98)}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px}
+  .chip{font-size:12px;font-weight:700;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:6px 12px;
+    background:var(--panel);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .chip.warn{color:#141414;background:var(--ball);border-color:var(--ball)}
+  .iconbtn{flex:none;font-size:13px;font-weight:700;font-family:inherit;color:var(--muted);background:var(--panel);
+    border:1px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer}
+  #setLine{text-align:center;font-size:12px;font-weight:800;letter-spacing:.04em;color:var(--muted);margin-bottom:8px}
+  #setLine b{color:var(--text)}
+  .board{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--radius);padding:14px 8px;margin-bottom:12px}
+  .side{text-align:center}
+  .side .tname{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px}
+  .side.a .tname{color:var(--team-a)} .side.b .tname{color:var(--team-b)}
+  .side .pts{font-size:60px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+  .vs{font-size:13px;color:var(--muted);font-weight:700;padding:0 6px}
+  .serve{display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:12px 16px;margin-bottom:12px}
+  .ring{position:relative;width:84px;height:84px;flex:none}.ring svg{display:block}
+  .ring .ballmark{position:absolute;width:16px;height:16px;border-radius:50%;background:var(--ball);box-shadow:0 0 0 3px var(--court);
+    transition:all .25s ease;top:50%;left:-2px;transform:translateY(-50%)}
+  .ring .ballmark.right{left:auto;right:-2px}.ring .ballmark.top{top:-2px;left:50%;right:auto;transform:translateX(-50%)}
+  .serveinfo{min-width:0;flex:1}
+  .serveinfo .slabel{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .serveinfo .sname{font-size:22px;font-weight:900;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .serveinfo .sname.a{color:var(--team-a)} .serveinfo .sname.b{color:var(--team-b)}
+  .serveinfo .sturn{font-size:12px;color:var(--muted);font-weight:700;margin-top:3px;line-height:1.35}
+  .actions{display:grid;gap:10px}
+  .btn{padding:16px 10px;font-size:16px;font-weight:900;font-family:inherit;letter-spacing:.05em;text-transform:uppercase;
+    border:none;border-radius:var(--radius);cursor:pointer;color:#141414;transition:background .15s}
+  .btn small{display:block;font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:none;opacity:.82;margin-top:2px}
+  .btn.win-a{background:var(--team-a);color:#141414}.btn.win-b{background:var(--team-b);color:#141414}
+  .btn.outline-a{background:transparent;color:var(--team-a);border:2px solid var(--team-a)}
+  .btn.outline-b{background:transparent;color:var(--team-b);border:2px solid var(--team-b)}
+  .duo{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .underrow{display:flex;gap:10px;margin-top:12px}
+  .underrow button{flex:1;padding:12px;font-size:14px;font-weight:700;font-family:inherit;background:var(--panel);color:var(--muted);
+    border:1px solid var(--line);border-radius:12px;cursor:pointer}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 4px;text-align:center;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+  th{font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  td:first-child,th:first-child{text-align:left}
+  td.pn{font-weight:700;max-width:84px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  tr.ta td.pn{color:var(--team-a)} tr.tb td.pn{color:var(--team-b)}
+  td.hl{color:var(--ball);font-weight:800}
+  .statsub{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:16px 0 6px}
+  .teamstats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+  .tsbox{border:1px solid var(--line);border-radius:12px;padding:10px}
+  .tsbox .tsn{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tsbox.a .tsn{color:var(--team-a)} .tsbox.b .tsn{color:var(--team-b)}
+  .tsbox .tsr{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);padding:2px 0}
+  .tsbox .tsr b{color:var(--text);font-variant-numeric:tabular-nums}
+  .chartbox{margin-top:8px}.chartbox svg{display:block;width:100%;height:auto}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:11px;color:var(--muted);font-weight:700}
+  .legend span{display:inline-flex;align-items:center;gap:5px}.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .expbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  .expbtns button{padding:13px;font-size:14px;font-weight:800;font-family:inherit;border-radius:12px;cursor:pointer;
+    background:var(--ok);color:#0A2A15;border:none}
+  .expbtns button.csv{background:var(--panel);color:var(--text);border:1px solid var(--line)}
+  .scopebar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .scopebar button{flex:1;min-width:56px;padding:9px 6px;font-size:12px;font-weight:800;font-family:inherit;background:var(--court);
+    color:var(--muted);border:1px solid var(--line);border-radius:10px;cursor:pointer}
+  .scopebar button.on{background:var(--ball);color:#141414;border-color:var(--ball)}
+  .setscores{font-size:14px;color:var(--muted);font-weight:700;margin-bottom:14px;line-height:1.5}.setscores b{color:var(--text)}
+  .overlay{position:fixed;inset:0;background:rgba(10,13,17,.94);display:none;align-items:flex-start;justify-content:center;
+    padding:32px 16px;z-index:50;overflow-y:auto}
+  .overlay.show{display:flex}
+  .winbox{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px 16px;width:100%;max-width:440px;text-align:center}
+  .winbox .wlabel{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--ball)}
+  .winbox .wname{font-size:28px;font-weight:900;margin:6px 0 2px}
+  .winbox .wscore{font-size:20px;font-weight:800;color:var(--muted);margin-bottom:12px}
+  .winbox .statsub,.winbox table,.winbox .teamstats,.winbox .chartbox,.winbox .legend,.winbox .scopebar{text-align:left}
+  .winbox .btn{font-size:14px;padding:14px 8px}
+  .btn.ghost{background:var(--court);color:var(--text);border:1px solid var(--line)}
+  .modaltitle{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--ball);margin-bottom:4px}
+  .modalsub{font-size:20px;font-weight:900;margin-bottom:16px}
+</style>
+</head>
+<body>
+
+<h1>Roundnet <span class="dot">&#9679;</span> Scorekeeper</h1>
+<div id="gameSub"></div>
+
+<!-- ===================== SETUP ===================== -->
+<div class="screen active" id="setup">
+  <div class="card">
+    <h2 class="a">Team A</h2>
+    <div class="row">
+      <div class="field"><label for="a1">Player 1</label><input type="text" id="a1" placeholder="Name"></div>
+      <div class="field"><label for="a2">Player 2</label><input type="text" id="a2" placeholder="Name"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2 class="b">Team B</h2>
+    <div class="row">
+      <div class="field"><label for="b1">Player 1</label><input type="text" id="b1" placeholder="Name"></div>
+      <div class="field"><label for="b2">Player 2</label><input type="text" id="b2" placeholder="Name"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2 class="n">Game info</h2>
+    <div class="field"><label for="gameLabel">Label (optional)</label>
+      <input type="text" id="gameLabel" placeholder="e.g. Phase 1 &middot; Pool A &middot; Final"></div>
+  </div>
+  <div class="card">
+    <h2 class="n">Match</h2>
+    <div class="field">
+      <label>Mode</label>
+      <div class="seg" id="modeSeg">
+        <button data-v="single" class="on">Single match</button>
+        <button data-v="bo3">Best of 3</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Target score per set (win by 2)</label>
+      <div class="seg" id="targetSeg">
+        <button data-v="11">11</button><button data-v="15">15</button><button data-v="21" class="on">21</button>
+      </div>
+    </div>
+    <div class="field"><label for="capVal">Hard cap &mdash; set ends immediately at this score</label>
+      <input type="number" id="capVal" value="25" min="2" inputmode="numeric"></div>
+  </div>
+  <div class="card">
+    <h2 class="n">First serve &amp; receive &mdash; set 1</h2>
+    <div class="field"><label for="firstServer">Who serves first?</label><select id="firstServer"></select></div>
+    <div class="field"><label for="firstReceiver">Who receives the first serve?</label><select id="firstReceiver"></select></div>
+  </div>
+  <button class="primary" id="startBtn">Start match</button>
+</div>
+
+<!-- ===================== GAME ===================== -->
+<div class="screen" id="game">
+  <div class="topbar">
+    <span class="chip" id="modeChip">To 21 &middot; Cap 25</span>
+    <button class="iconbtn" id="undoBtn">&#8617; Undo</button>
+  </div>
+  <div id="setLine" style="display:none"></div>
+
+  <div class="board">
+    <div class="side a"><div class="tname" id="nameA">Team A</div><div class="pts" id="ptsA">0</div></div>
+    <div class="vs">:</div>
+    <div class="side b"><div class="tname" id="nameB">Team B</div><div class="pts" id="ptsB">0</div></div>
+  </div>
+
+  <div class="serve">
+    <div class="ring">
+      <svg viewBox="0 0 84 84" width="84" height="84" aria-hidden="true">
+        <circle cx="42" cy="42" r="38" fill="none" stroke="var(--line)" stroke-width="6"/>
+        <g stroke="var(--line)" stroke-width="1.5">
+          <line x1="42" y1="8" x2="42" y2="76"/><line x1="8" y1="42" x2="76" y2="42"/>
+          <line x1="18" y1="18" x2="66" y2="66"/><line x1="66" y1="18" x2="18" y2="66"/></g>
+        <circle cx="42" cy="42" r="38" fill="none" id="ringStroke" stroke="var(--ball)" stroke-width="6"
+          stroke-dasharray="239" stroke-dashoffset="0" transform="rotate(-90 42 42)" stroke-linecap="round"/>
+      </svg>
+      <div class="ballmark" id="ballmark"></div>
+    </div>
+    <div class="serveinfo">
+      <div class="slabel">Serving</div>
+      <div class="sname" id="serverName">&ndash;</div>
+      <div class="sturn" id="turnInfo"></div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <div class="duo">
+      <button class="btn" id="aceBtn">&#9678; Ace <small id="aceLabel">serve not returned</small></button>
+      <button class="btn" id="faultBtn">Double fault <small id="faultLabel"></small></button>
+    </div>
+    <button class="btn" id="holdBtn">Serving team wins <small id="holdLabel"></small></button>
+    <div class="duo">
+      <button class="btn" id="soDirectBtn">Hold &middot; direct <small>receivers win off the return (&le;3 touches)</small></button>
+      <button class="btn" id="soRallyBtn">Hold &middot; rally <small>receivers win after a longer rally</small></button>
+    </div>
+  </div>
+
+  <div class="underrow">
+    <button id="statsBtn">&#128202; Stats &amp; charts</button>
+    <button id="resetBtn">End match</button>
+  </div>
+
+  <div class="card" id="statsCard" style="display:none;margin-top:12px">
+    <div class="statsub">Current set &mdash; player stats</div>
+    <table>
+      <thead><tr><th>Player</th><th>Serve<br>consist.</th><th>Ace<br>rate</th><th>Break<br>rate</th><th>Times<br>broken</th><th>Times<br>aced</th></tr></thead>
+      <tbody id="statsBody"></tbody>
+    </table>
+    <div class="statsub">Serving raw counts</div>
+    <table>
+      <thead><tr><th>Player</th><th>Serves</th><th>Aces</th><th>Dbl faults</th><th>Breaks</th></tr></thead>
+      <tbody id="rawBody"></tbody>
+    </table>
+    <div class="statsub">Team &mdash; receiving</div>
+    <div class="teamstats" id="teamStats"></div>
+    <div class="statsub">Break rate by player</div><div class="chartbox" id="chartBreak"></div>
+    <div class="statsub">Hold rate by team</div><div class="chartbox" id="chartHold"></div>
+    <div class="statsub">Point breakdown</div><div class="chartbox" id="chartMix"></div><div class="legend" id="mixLegend"></div>
+    <div class="expbtns">
+      <button id="xlsxBtnLive">&#8681; Excel (.xlsx)</button>
+      <button class="csv" id="csvBtnLive">&#8681; CSV</button>
+    </div>
+    <p class="hint" id="statsFootnote"></p>
+  </div>
+</div>
+
+<!-- ===================== NEXT-SET SETUP MODAL ===================== -->
+<div class="overlay" id="setSetup">
+  <div class="winbox">
+    <div class="modaltitle" id="nsTitle">Set 2</div>
+    <div class="modalsub" id="nsScore">Match 1 : 0</div>
+    <div class="field" style="text-align:left"><label for="nsServer">Who serves first this set?</label><select id="nsServer"></select></div>
+    <div class="field" style="text-align:left"><label for="nsReceiver">Who receives the first serve?</label><select id="nsReceiver"></select></div>
+    <button class="primary" id="nsStart" style="margin-top:8px">Start set</button>
+  </div>
+</div>
+
+<!-- ===================== MATCH RESULT ===================== -->
+<div class="overlay" id="matchOverlay">
+  <div class="winbox">
+    <div class="wlabel" id="mLabel">Match won</div>
+    <div class="wname" id="mName">&ndash;</div>
+    <div class="wscore" id="mScore"></div>
+    <div class="setscores" id="mSetScores"></div>
+    <div class="scopebar" id="scopeBar"></div>
+    <div class="statsub">Player stats</div>
+    <table>
+      <thead><tr><th>Player</th><th>Serve<br>consist.</th><th>Ace<br>rate</th><th>Break<br>rate</th><th>Broken</th><th>Aced</th></tr></thead>
+      <tbody id="mStats"></tbody>
+    </table>
+    <div class="statsub">Team &mdash; receiving</div>
+    <div class="teamstats" id="mTeamStats"></div>
+    <div class="statsub">Break rate by player</div><div class="chartbox" id="mChartBreak"></div>
+    <div class="statsub">Hold rate by team</div><div class="chartbox" id="mChartHold"></div>
+    <div class="statsub">Point breakdown</div><div class="chartbox" id="mChartMix"></div><div class="legend" id="mMixLegend"></div>
+    <div class="expbtns">
+      <button id="xlsxBtn">&#8681; Excel (.xlsx)</button>
+      <button class="csv" id="csvBtn">&#8681; CSV</button>
+    </div>
+    <div class="duo" style="margin-top:12px">
+      <button class="btn ghost" id="rematchBtn">Rematch</button>
+      <button class="btn" id="newGameBtn" style="background:var(--ball);color:#141414">New match</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const PARTNER = {A1:'A2', A2:'A1', B1:'B2', B2:'B1'};
+  const OUTCOME_LABEL = {ace:'Ace', serveWin:'Serve win (break)', doubleFault:'Double fault', holdDirect:'Hold direct', holdRally:'Hold rally'};
+
+  let cfg = { target:21, cap:25, label:'', matchMode:'single' };
+  let pnames = {A1:'A1',A2:'A2',B1:'B1',B2:'B2'};
+  let P, T, points, turnOrder, state, history;
+  let curStartServer, curStartReceiver;
+  let sets = [], matchSetsA = 0, matchSetsB = 0, matchFinished = false;
+
+  const freshP = () => { const o={}; ['A1','A2','B1','B2'].forEach(k=>o[k]={name:pnames[k],team:k[0],serves:0,aces:0,df:0,breaks:0,broken:0,aced:0}); return o; };
+  const freshT = () => ({A:{received:0,holdDirect:0,holdRally:0}, B:{received:0,holdDirect:0,holdRally:0}});
+  const clone = x => JSON.parse(JSON.stringify(x));
+
+  // ---------- Setup screen ----------
+  function seg(segEl, cb){
+    segEl.addEventListener('click', e=>{ if(e.target.tagName!=='BUTTON')return;
+      [...segEl.children].forEach(b=>b.classList.remove('on')); e.target.classList.add('on'); cb(e.target.dataset.v); });
+  }
+  seg($('modeSeg'), v => cfg.matchMode = v);
+  seg($('targetSeg'), v => { cfg.target = parseInt(v,10); $('capVal').value = cfg.target + 4; });
+
+  function getNames(){ return {
+    A1:$('a1').value.trim()||'A1', A2:$('a2').value.trim()||'A2',
+    B1:$('b1').value.trim()||'B1', B2:$('b2').value.trim()||'B2' }; }
+  function fillServers(sel, names){ const prev=sel.value; sel.innerHTML='';
+    [['A1','Team A'],['A2','Team A'],['B1','Team B'],['B2','Team B']].forEach(([k,t])=>{
+      const o=document.createElement('option'); o.value=k; o.textContent=names[k]+' ('+t+')'; sel.appendChild(o); });
+    if(prev) sel.value=prev; }
+  function fillReceivers(serverKey, sel, names){ const opp=serverKey[0]==='A'?'B':'A'; const prev=sel.value; sel.innerHTML='';
+    [opp+'1',opp+'2'].forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=names[k]+' (Team '+opp+')'; sel.appendChild(o); });
+    if(prev && prev[0]===opp) sel.value=prev; }
+  function refreshSetupSelects(){ const n=getNames(); fillServers($('firstServer'),n); fillReceivers($('firstServer').value||'A1',$('firstReceiver'),n); }
+  ['a1','a2','b1','b2'].forEach(id=>$(id).addEventListener('input', refreshSetupSelects));
+  $('firstServer').addEventListener('change', ()=>fillReceivers($('firstServer').value,$('firstReceiver'),getNames()));
+  refreshSetupSelects();
+
+  function setLabel(v){ cfg.label=v; $('gameLabel').value=v; $('gameSub').textContent=v; }
+  $('gameLabel').addEventListener('input', e=>setLabel(e.target.value));
+
+  $('startBtn').addEventListener('click', ()=>{
+    pnames = getNames();
+    cfg.cap = Math.max(parseInt($('capVal').value,10)||cfg.target+4, 2);
+    cfg.label = $('gameLabel').value.trim();
+    sets=[]; matchSetsA=0; matchSetsB=0; matchFinished=false;
+    $('nameA').textContent = pnames.A1+' & '+pnames.A2;
+    $('nameB').textContent = pnames.B1+' & '+pnames.B2;
+    setLabel(cfg.label);
+    startSet($('firstServer').value, $('firstReceiver').value);
+    $('setup').classList.remove('active'); $('game').classList.add('active');
+  });
+
+  // ---------- Set lifecycle ----------
+  function startSet(serverKey, receiverKey){
+    curStartServer=serverKey; curStartReceiver=receiverKey;
+    turnOrder=[serverKey, PARTNER[receiverKey], PARTNER[serverKey], receiverKey];
+    P=freshP(); T=freshT(); points=[]; history=[];
+    state={scoreA:0,scoreB:0,turnIdx:0,pointInTurn:0,firstTurnDone:false};
+    $('setSetup').classList.remove('show'); $('matchOverlay').classList.remove('show');
+    updateSetLine(); render();
+  }
+  function updateSetLine(){
+    const el=$('setLine');
+    if(cfg.matchMode==='bo3'){ el.style.display='block';
+      el.innerHTML='Set '+(sets.length+1)+' &nbsp;&middot;&nbsp; Sets <b>'+matchSetsA+'</b> \u2013 <b>'+matchSetsB+'</b>'; }
+    else el.style.display='none';
+  }
+  function finalizeSet(winner){
+    sets.push({ no:sets.length+1, startServer:curStartServer, startReceiver:curStartReceiver,
+      scoreA:state.scoreA, scoreB:state.scoreB, winner, P:clone(P), T:clone(T), points:clone(points) });
+  }
+  function concludeSet(winner){
+    finalizeSet(winner);
+    if(winner==='A') matchSetsA++; else matchSetsB++;
+    const need = cfg.matchMode==='bo3'?2:1;
+    if(cfg.matchMode==='single' || matchSetsA>=need || matchSetsB>=need){ matchFinished=true; showMatchResult(); }
+    else openSetSetup();
+  }
+  function openSetSetup(){
+    $('nsTitle').textContent='Set '+(sets.length+1);
+    $('nsScore').textContent='Match '+matchSetsA+' : '+matchSetsB;
+    fillServers($('nsServer'), pnames); $('nsServer').value='A1';
+    fillReceivers('A1', $('nsReceiver'), pnames);
+    $('setSetup').classList.add('show');
+  }
+  $('nsServer').addEventListener('change', ()=>fillReceivers($('nsServer').value,$('nsReceiver'),pnames));
+  $('nsStart').addEventListener('click', ()=> startSet($('nsServer').value, $('nsReceiver').value));
+
+  // ---------- Point logic ----------
+  const server = () => P[turnOrder[state.turnIdx]];
+  const servingTeam = () => server().team;
+  const receivingTeam = () => servingTeam()==='A'?'B':'A';
+  const setWon = () => { const hi=Math.max(state.scoreA,state.scoreB), lead=Math.abs(state.scoreA-state.scoreB);
+    return (hi>=cfg.target && lead>=2) || hi>=cfg.cap; };
+  const overtime = () => Math.max(state.scoreA,state.scoreB)>=cfg.target && !setWon();
+  const turnLength = () => (!state.firstTurnDone || overtime())?1:2;
+  function currentReceiverKey(){
+    if(!state.firstTurnDone) return turnOrder[(state.turnIdx+3)%4];
+    return state.pointInTurn===0 ? turnOrder[(state.turnIdx+1)%4] : turnOrder[(state.turnIdx+3)%4];
+  }
+  function snapshot(){ history.push(JSON.stringify({state,P,T,points})); if(history.length>400) history.shift(); }
+  function undo(){ if(!history.length) return; const s=JSON.parse(history.pop());
+    state=s.state; P=s.P; T=s.T; points=s.points; render(); }
+
+  function stub(outcome){ const sKey=turnOrder[state.turnIdx], rKey=currentReceiverKey();
+    return {outcome, server:sKey, serverName:P[sKey].name, servingTeam:P[sKey].team, receiver:rKey, receiverName:P[rKey].name}; }
+
+  function finishPoint(winnerTeam, pt){
+    if(winnerTeam==='A') state.scoreA++; else state.scoreB++;
+    pt.pointNo=points.length+1; pt.setNo=sets.length+1; pt.winner=winnerTeam;
+    pt.scoreA=state.scoreA; pt.scoreB=state.scoreB; points.push(pt);
+    if(setWon()){ render(); concludeSet(state.scoreA>state.scoreB?'A':'B'); return; }
+    state.pointInTurn++;
+    if(state.pointInTurn>=turnLength()){ if(!state.firstTurnDone) state.firstTurnDone=true;
+      state.turnIdx=(state.turnIdx+1)%4; state.pointInTurn=0; }
+    render();
+  }
+  function onAce(){ snapshot(); const s=server(), rt=receivingTeam(); T[rt].received++;
+    s.serves++; s.aces++; s.breaks++; const r=P[currentReceiverKey()]; r.aced++; r.broken++; finishPoint(s.team, stub('ace')); }
+  function onServeWin(){ snapshot(); const s=server(), rt=receivingTeam(); T[rt].received++;
+    s.serves++; s.breaks++; P[currentReceiverKey()].broken++; finishPoint(s.team, stub('serveWin')); }
+  function onFault(){ snapshot(); const s=server(), rt=receivingTeam(); T[rt].received++;
+    s.serves++; s.df++; finishPoint(rt, stub('doubleFault')); }
+  function onHold(direct){ snapshot(); const s=server(), rt=receivingTeam(); T[rt].received++;
+    s.serves++; if(direct) T[rt].holdDirect++; else T[rt].holdRally++; finishPoint(rt, stub(direct?'holdDirect':'holdRally')); }
+
+  $('aceBtn').addEventListener('click', onAce);
+  $('faultBtn').addEventListener('click', onFault);
+  $('holdBtn').addEventListener('click', onServeWin);
+  $('soDirectBtn').addEventListener('click', ()=>onHold(true));
+  $('soRallyBtn').addEventListener('click', ()=>onHold(false));
+  $('undoBtn').addEventListener('click', undo);
+
+  // ---------- Metrics ----------
+  const teamName = t => t==='A' ? pnames.A1+' & '+pnames.A2 : pnames.B1+' & '+pnames.B2;
+  const pct = (n,d) => d>0 ? Math.round(100*n/d)+'%' : '\u2013';
+  const teamBrokenOf = (Ps,t) => t==='A' ? Ps.A1.broken+Ps.A2.broken : Ps.B1.broken+Ps.B2.broken;
+
+  // ---------- Live render ----------
+  function render(){
+    $('ptsA').textContent=state.scoreA; $('ptsB').textContent=state.scoreB;
+    const s=server(), st=servingTeam(), rt=receivingTeam();
+    const sn=$('serverName'); sn.textContent=s.name; sn.className='sname '+(st==='A'?'a':'b');
+    updateSetLine();
+    const chip=$('modeChip');
+    if(overtime()){ chip.textContent='\u26A1 Overtime \u00B7 1 point per serve'; chip.classList.add('warn'); }
+    else { chip.textContent='To '+cfg.target+' \u00B7 Hard cap '+cfg.cap; chip.classList.remove('warn'); }
+    const ti=$('turnInfo'), bm=$('ballmark'), recvName=P[currentReceiverKey()].name;
+    if(!state.firstTurnDone){ ti.textContent='First serve \u00B7 1 point \u00B7 from the right \u00B7 to '+recvName; bm.className='ballmark right'; }
+    else if(overtime()){ ti.textContent='1 point \u00B7 positions stay \u00B7 to '+recvName; bm.className='ballmark top'; }
+    else if(state.pointInTurn===0){ ti.textContent='Point 1 of 2 \u00B7 from the left \u00B7 to '+recvName; bm.className='ballmark'; }
+    else { ti.textContent='Point 2 of 2 \u00B7 from the right \u00B7 to '+recvName; bm.className='ballmark right'; }
+    $('ringStroke').setAttribute('stroke', st==='A'?'var(--team-a)':'var(--team-b)');
+    const winCls=t=>'win-'+t.toLowerCase(), outCls=t=>'outline-'+t.toLowerCase();
+    $('aceBtn').className='btn '+winCls(st); $('aceLabel').textContent='serve not returned by '+recvName;
+    $('holdBtn').className='btn '+winCls(st); $('holdLabel').textContent='break \u00B7 '+teamName(st)+' win the rally';
+    $('faultBtn').className='btn '+outCls(rt); $('faultLabel').textContent='point to '+teamName(rt);
+    $('soDirectBtn').className='btn '+winCls(rt); $('soRallyBtn').className='btn '+winCls(rt);
+    $('undoBtn').style.opacity=history.length?'1':'.4';
+    renderPlayerStats($('statsBody'), P, turnOrder[state.turnIdx]);
+    renderRaw($('rawBody'), P);
+    renderTeamStats($('teamStats'), P, T);
+    drawCharts({brk:'chartBreak',hold:'chartHold',mix:'chartMix',legend:'mixLegend'}, P, T);
+    $('statsFootnote').innerHTML =
+      'Serve consistency = non-fault serves \u00F7 serves. Ace rate = aces \u00F7 serves. Break rate = points won while serving \u00F7 serves. '
+      + 'Hold rate = points won while receiving \u00F7 points received. Times aced = returns missed. '
+      + '<b>Times broken</b> counts only points where you were the designated receiver and your team lost the point \u2014 an estimate proxy that may not reflect each player\u2019s actual responsibility. \u25CF = currently serving.';
+  }
+  function renderPlayerStats(tbody, Ps, activeKey){
+    tbody.innerHTML='';
+    ['A1','A2','B1','B2'].forEach(k=>{ const p=Ps[k]; const tr=document.createElement('tr');
+      tr.className=p.team==='A'?'ta':'tb';
+      tr.innerHTML='<td class="pn">'+escapeHtml(p.name)+(k===activeKey?' \u25CF':'')+'</td>'+
+        '<td>'+pct(p.serves-p.df,p.serves)+'</td>'+
+        '<td class="'+(p.aces?'hl':'')+'">'+pct(p.aces,p.serves)+'</td>'+
+        '<td>'+pct(p.breaks,p.serves)+'</td>'+
+        '<td>'+p.broken+'</td><td>'+p.aced+'</td>'; tbody.appendChild(tr); });
+  }
+  function renderRaw(tbody, Ps){
+    tbody.innerHTML='';
+    ['A1','A2','B1','B2'].forEach(k=>{ const p=Ps[k]; const tr=document.createElement('tr');
+      tr.className=p.team==='A'?'ta':'tb';
+      tr.innerHTML='<td class="pn">'+escapeHtml(p.name)+'</td><td>'+p.serves+'</td>'+
+        '<td class="'+(p.aces?'hl':'')+'">'+p.aces+'</td><td>'+p.df+'</td><td>'+p.breaks+'</td>'; tbody.appendChild(tr); });
+  }
+  function renderTeamStats(el, Ps, Ts){
+    el.innerHTML='';
+    ['A','B'].forEach(t=>{ const recv=Ts[t].received, brk=teamBrokenOf(Ps,t), holds=recv-brk, played=Ts[t].holdDirect+Ts[t].holdRally;
+      const d=document.createElement('div'); d.className='tsbox '+t.toLowerCase();
+      d.innerHTML='<div class="tsn">'+escapeHtml(teamName(t))+'</div>'+
+        '<div class="tsr"><span>Hold rate</span><b>'+pct(holds,recv)+'</b></div>'+
+        '<div class="tsr"><span>&nbsp;&nbsp;of which rally</span><b>'+pct(Ts[t].holdRally,played)+'</b></div>'+
+        '<div class="tsr"><span>Holds (direct / rally)</span><b>'+Ts[t].holdDirect+' / '+Ts[t].holdRally+'</b></div>'+
+        '<div class="tsr"><span>Broken / received</span><b>'+brk+' / '+recv+'</b></div>'; el.appendChild(d); });
+  }
+
+  // ---- SVG charts ----
+  function hbarChart(rows){
+    const W=300,rowH=30,padT=6,padB=6,labelW=96,trackX=labelW+6,trackW=W-trackX-8,H=padT+padB+rows.length*rowH;
+    let svg='<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" font-family="Archivo, sans-serif">';
+    rows.forEach((r,i)=>{ const mid=padT+i*rowH+rowH/2, frac=r.max>0?Math.max(0,Math.min(1,r.value/r.max)):0, bw=Math.max(frac*trackW, r.value>0?3:0);
+      svg+='<text x="0" y="'+(mid+4)+'" fill="#8A97A5" font-size="12" font-weight="700">'+escapeHtml(r.label)+'</text>'+
+        '<rect x="'+trackX+'" y="'+(mid-9)+'" width="'+trackW+'" height="18" rx="6" fill="#0E1116" stroke="#26303B"/>'+
+        '<rect x="'+trackX+'" y="'+(mid-9)+'" width="'+bw+'" height="18" rx="6" fill="'+r.color+'"/>'+
+        '<text x="'+(W-4)+'" y="'+(mid+4)+'" text-anchor="end" fill="#F2F5F7" font-size="12" font-weight="800">'+escapeHtml(r.text)+'</text>'; });
+    return svg+'</svg>';
+  }
+  function stackChart(segs,total){
+    const W=300,H=46,x0=2,w=W-4,barY=6,barH=22; let svg='<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" font-family="Archivo, sans-serif">';
+    svg+='<rect x="'+x0+'" y="'+barY+'" width="'+w+'" height="'+barH+'" rx="7" fill="#0E1116" stroke="#26303B"/>'; let cx=x0;
+    if(total>0) segs.forEach(s=>{ const sw=w*s.value/total; if(sw>0){ svg+='<rect x="'+cx+'" y="'+barY+'" width="'+sw+'" height="'+barH+'" fill="'+s.color+'"/>'; cx+=sw; } });
+    svg+='<text x="'+x0+'" y="'+(barY+barH+14)+'" fill="#8A97A5" font-size="11" font-weight="700">'+total+' points played</text>';
+    return svg+'</svg>';
+  }
+  function drawCharts(ids, Ps, Ts){
+    const brRows=['A1','A2','B1','B2'].map(k=>{ const p=Ps[k];
+      return {label:p.name, value:p.serves?100*p.breaks/p.serves:0, max:100, color:p.team==='A'?'#FF6B5E':'#55C1FF', text:pct(p.breaks,p.serves)}; });
+    const holdRows=['A','B'].map(t=>{ const recv=Ts[t].received, holds=recv-teamBrokenOf(Ps,t);
+      return {label:teamName(t), value:recv?100*holds/recv:0, max:100, color:t==='A'?'#FF6B5E':'#55C1FF', text:pct(holds,recv)}; });
+    const aces=Ps.A1.aces+Ps.A2.aces+Ps.B1.aces+Ps.B2.aces, breaks=Ps.A1.breaks+Ps.A2.breaks+Ps.B1.breaks+Ps.B2.breaks;
+    const serveWins=breaks-aces, dfs=Ps.A1.df+Ps.A2.df+Ps.B1.df+Ps.B2.df, hd=Ts.A.holdDirect+Ts.B.holdDirect, hr=Ts.A.holdRally+Ts.B.holdRally;
+    const total=aces+serveWins+dfs+hd+hr;
+    const segs=[{value:aces,color:'#FFD23F',label:'Ace'},{value:serveWins,color:'#F59E42',label:'Serve win'},
+      {value:dfs,color:'#7A8290',label:'Double fault'},{value:hd,color:'#4ADE80',label:'Hold direct'},{value:hr,color:'#55C1FF',label:'Hold rally'}];
+    if($(ids.brk)) $(ids.brk).innerHTML=hbarChart(brRows);
+    if($(ids.hold)) $(ids.hold).innerHTML=hbarChart(holdRows);
+    if($(ids.mix)) $(ids.mix).innerHTML=stackChart(segs,total);
+    if(ids.legend && $(ids.legend)) $(ids.legend).innerHTML=segs.map(s=>'<span><i style="background:'+s.color+'"></i>'+s.label+' '+s.value+'</span>').join('');
+  }
+  function escapeHtml(t){ const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
+  $('statsBtn').addEventListener('click', ()=>{ const c=$('statsCard'); c.style.display=c.style.display==='none'?'block':'none'; });
+
+  // ---------- Scopes (sets + total) ----------
+  function allScopes(){
+    const arr = sets.map(s=>({no:s.no, P:s.P, T:s.T, points:s.points, scoreA:s.scoreA, scoreB:s.scoreB, winner:s.winner}));
+    if(!matchFinished && points && points.length>0)
+      arr.push({no:sets.length+1, P, T, points, scoreA:state.scoreA, scoreB:state.scoreB, winner:null});
+    return arr;
+  }
+  function sumScopes(scopes){
+    const Ps=freshP(), Ts=freshT();
+    scopes.forEach(sc=>{ ['A1','A2','B1','B2'].forEach(k=>['serves','aces','df','breaks','broken','aced'].forEach(f=>Ps[k][f]+=sc.P[k][f]));
+      ['A','B'].forEach(t=>['received','holdDirect','holdRally'].forEach(f=>Ts[t][f]+=sc.T[t][f])); });
+    return {P:Ps, T:Ts};
+  }
+
+  // ---------- Match result overlay ----------
+  let currentScope='total';
+  function showMatchResult(){
+    const winner = matchSetsA>matchSetsB?'A':'B';
+    $('mLabel').textContent = cfg.matchMode==='bo3' ? 'Match won' : 'Game won';
+    $('mName').textContent = teamName(winner);
+    $('mScore').textContent = cfg.matchMode==='bo3' ? ('Sets '+matchSetsA+' : '+matchSetsB) : (sets[0].scoreA+' : '+sets[0].scoreB);
+    $('mSetScores').innerHTML = sets.map(s=>'Set '+s.no+': <b>'+s.scoreA+'\u2013'+s.scoreB+'</b>').join(' &nbsp;&middot;&nbsp; ');
+    // scope bar
+    const bar=$('scopeBar'); bar.innerHTML='';
+    if(sets.length>1){ sets.forEach(s=>{ const b=document.createElement('button'); b.textContent='Set '+s.no; b.dataset.scope=(s.no-1); bar.appendChild(b); });
+      const bt=document.createElement('button'); bt.textContent='Match'; bt.dataset.scope='total'; bar.appendChild(bt);
+      bar.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ currentScope=b.dataset.scope; renderScope(); }));
+      bar.style.display='flex';
+    } else bar.style.display='none';
+    currentScope='total'; renderScope();
+    $('matchOverlay').classList.add('show');
+  }
+  function renderScope(){
+    let Ps,Ts;
+    if(currentScope==='total'){ const s=sumScopes(allScopes()); Ps=s.P; Ts=s.T; }
+    else { const sc=allScopes()[parseInt(currentScope,10)]; Ps=sc.P; Ts=sc.T; }
+    renderPlayerStats($('mStats'), Ps, null);
+    renderTeamStats($('mTeamStats'), Ps, Ts);
+    drawCharts({brk:'mChartBreak',hold:'mChartHold',mix:'mChartMix',legend:'mMixLegend'}, Ps, Ts);
+    $('scopeBar').querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.scope===String(currentScope)));
+  }
+
+  // ---------- Export ----------
+  function exportTables(){
+    const scopes = allScopes();
+    const tot = sumScopes(scopes);
+    const meta = [
+      ['Roundnet Scorekeeper'],
+      ['Game info', cfg.label||'(none)'],
+      ['Mode', cfg.matchMode==='bo3'?'Best of 3':'Single match'],
+      ['Exported', new Date().toLocaleString()],
+      ['Format', 'To '+cfg.target+', hard cap '+cfg.cap],
+      ['Teams', teamName('A')+'  vs  '+teamName('B')],
+      ['Sets won', teamName('A')+' '+matchSetsA+' : '+matchSetsB+' '+teamName('B')],
+      ['Result', matchFinished ? (teamName(matchSetsA>matchSetsB?'A':'B')+' win') : 'In progress']
+    ];
+    scopes.forEach(s=> meta.push(['Set '+s.no+' score', teamName('A')+' '+s.scoreA+' : '+s.scoreB+' '+teamName('B')
+      + (s.winner?('  ('+teamName(s.winner)+')'):'')]));
+
+    const points=[['Set','Point','Server','Serving team','Receiver','Outcome','Winner','Score A','Score B']];
+    scopes.forEach(s=> s.points.forEach(p=> points.push(
+      [s.no, p.pointNo, p.serverName, 'Team '+p.servingTeam, p.receiverName, OUTCOME_LABEL[p.outcome], teamName(p.winner), p.scoreA, p.scoreB])));
+
+    const playerHead=['Scope','Player','Team','Serves','Aces','Ace %','Serve consistency %','Double faults','Breaks','Break %','Times broken','Times aced'];
+    const players=[playerHead];
+    const pushPlayers=(scopeLabel,Ps)=>['A1','A2','B1','B2'].forEach(k=>{ const p=Ps[k];
+      players.push([scopeLabel, p.name, 'Team '+p.team, p.serves, p.aces,
+        p.serves?Math.round(100*p.aces/p.serves):'', p.serves?Math.round(100*(p.serves-p.df)/p.serves):'',
+        p.df, p.breaks, p.serves?Math.round(100*p.breaks/p.serves):'', p.broken, p.aced]); });
+    pushPlayers('Match total', tot.P);
+    scopes.forEach(s=> pushPlayers('Set '+s.no, s.P));
+
+    const teamHead=['Scope','Team','Players','Points received','Holds won','Hold %','Holds direct','Holds rally','Rally share %','Times broken'];
+    const teams=[teamHead];
+    const pushTeams=(scopeLabel,Ps,Ts)=>['A','B'].forEach(t=>{ const recv=Ts[t].received, brk=teamBrokenOf(Ps,t), holds=recv-brk, played=Ts[t].holdDirect+Ts[t].holdRally;
+      teams.push([scopeLabel, 'Team '+t, teamName(t), recv, holds, recv?Math.round(100*holds/recv):'',
+        Ts[t].holdDirect, Ts[t].holdRally, played?Math.round(100*Ts[t].holdRally/played):'', brk]); });
+    pushTeams('Match total', tot.P, tot.T);
+    scopes.forEach(s=> pushTeams('Set '+s.no, s.P, s.T));
+
+    // Aggregated point breakdown (the stacked-chart composition) + key rates per scope
+    const mix=(Ps,Ts)=>{ const aces=Ps.A1.aces+Ps.A2.aces+Ps.B1.aces+Ps.B2.aces,
+      breaks=Ps.A1.breaks+Ps.A2.breaks+Ps.B1.breaks+Ps.B2.breaks, sw=breaks-aces,
+      dfs=Ps.A1.df+Ps.A2.df+Ps.B1.df+Ps.B2.df, hd=Ts.A.holdDirect+Ts.B.holdDirect, hr=Ts.A.holdRally+Ts.B.holdRally;
+      return {aces,sw,dfs,hd,hr,breaks,total:aces+sw+dfs+hd+hr}; };
+    const p1=(n,d)=>d>0?Math.round(100*n/d):'';
+    const breakdown=[['Scope','Total points','Aces','Serve wins','Double faults','Holds direct','Holds rally',
+      'Ace %','Serve-win %','Double-fault %','Hold-direct %','Hold-rally %']];
+    const pushMix=(label,Ps,Ts)=>{ const m=mix(Ps,Ts); breakdown.push([label,m.total,m.aces,m.sw,m.dfs,m.hd,m.hr,
+      p1(m.aces,m.total),p1(m.sw,m.total),p1(m.dfs,m.total),p1(m.hd,m.total),p1(m.hr,m.total)]); };
+    pushMix('Match total', tot.P, tot.T);
+    scopes.forEach(s=> pushMix('Set '+s.no, s.P, s.T));
+
+    return {meta, breakdown, points, players, teams};
+  }
+  function safeName(){ return ((cfg.label?cfg.label+' ':'')+'roundnet '+new Date().toISOString().slice(0,10))
+    .replace(/[^\w\- ]+/g,'').replace(/\s+/g,'_'); }
+  function download(blob, filename){ const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); },200); }
+  function exportXLSX(){
+    const {meta,breakdown,points,players,teams}=exportTables();
+    if(typeof XLSX==='undefined'){ alert('Excel library not loaded (offline?) \u2014 exporting CSV instead.'); return exportCSV(); }
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(meta), 'Summary');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(breakdown), 'Point breakdown');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(players), 'Player stats');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(teams), 'Team stats');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(points), 'Point log');
+    XLSX.writeFile(wb, safeName()+'.xlsx');
+  }
+  function exportCSV(){
+    const {meta,breakdown,points,players,teams}=exportTables();
+    const esc=v=>{ v=(v===null||v===undefined)?'':String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+    const block=rows=>rows.map(r=>r.map(esc).join(',')).join('\n');
+    const csv=['SUMMARY',block(meta),'POINT BREAKDOWN',block(breakdown),'PLAYER STATS',block(players),
+               'TEAM STATS',block(teams),'POINT LOG',block(points)].join('\n\n');
+    download(new Blob([csv],{type:'text/csv;charset=utf-8;'}), safeName()+'.csv');
+  }
+  ['xlsxBtn','xlsxBtnLive'].forEach(id=>$(id).addEventListener('click', exportXLSX));
+  ['csvBtn','csvBtnLive'].forEach(id=>$(id).addEventListener('click', exportCSV));
+
+  // ---------- Restart ----------
+  $('newGameBtn').addEventListener('click', ()=>{ $('matchOverlay').classList.remove('show');
+    $('game').classList.remove('active'); $('setup').classList.add('active'); });
+  $('rematchBtn').addEventListener('click', ()=>{ sets=[]; matchSetsA=0; matchSetsB=0; matchFinished=false;
+    $('matchOverlay').classList.remove('show'); openSetSetup(); });
+  $('resetBtn').addEventListener('click', ()=>{ if(confirm('End this match and start over?')){
+    $('game').classList.remove('active'); $('setup').classList.add('active'); } });
+})();
+</script>
+</body>
+</html>
