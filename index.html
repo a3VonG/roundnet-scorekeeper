@@ -618,8 +618,12 @@
 
     return {meta, breakdown, points, players, teams};
   }
-  function safeName(){ return ((cfg.label?cfg.label+' ':'')+'roundnet '+new Date().toISOString().slice(0,10))
-    .replace(/[^\w\- ]+/g,'').replace(/\s+/g,'_'); }
+  function safeName(){
+    const teamA=pnames.A1+'-'+pnames.A2, teamB=pnames.B1+'-'+pnames.B2;
+    const date=new Date().toISOString().slice(0,10);
+    return ((cfg.label?cfg.label+' ':'')+teamA+' vs '+teamB+' '+date)
+      .replace(/[^\w\- ]+/g,'').replace(/\s+/g,'_');
+  }
   function download(blob, filename){ const url=URL.createObjectURL(blob); const a=document.createElement('a');
     a.href=url; a.download=filename; document.body.appendChild(a); a.click();
     setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); },200); }
