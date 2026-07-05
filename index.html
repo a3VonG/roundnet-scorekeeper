@@ -164,7 +164,7 @@
       </div>
     </div>
     <div class="field"><label for="capVal">Hard cap &mdash; set ends immediately at this score</label>
-      <input type="number" id="capVal" value="25" min="2" inputmode="numeric"></div>
+      <input type="number" id="capVal" value="21" min="2" inputmode="numeric"></div>
   </div>
   <div class="card">
     <h2 class="n">First serve &amp; receive &mdash; set 1</h2>
@@ -295,7 +295,7 @@
   const PARTNER = {A1:'A2', A2:'A1', B1:'B2', B2:'B1'};
   const OUTCOME_LABEL = {ace:'Ace', serveWin:'Serve win (break)', doubleFault:'Double fault', holdDirect:'Hold direct', holdRally:'Hold rally'};
 
-  let cfg = { target:21, cap:25, label:'', matchMode:'single' };
+  let cfg = { target:21, cap:21, label:'', matchMode:'single' };
   let pnames = {A1:'A1',A2:'A2',B1:'B1',B2:'B2'};
   let P, T, points, turnOrder, state, history;
   let curStartServer, curStartReceiver;
@@ -311,7 +311,7 @@
       [...segEl.children].forEach(b=>b.classList.remove('on')); e.target.classList.add('on'); cb(e.target.dataset.v); });
   }
   seg($('modeSeg'), v => cfg.matchMode = v);
-  seg($('targetSeg'), v => { cfg.target = parseInt(v,10); $('capVal').value = cfg.target + 4; });
+  seg($('targetSeg'), v => { cfg.target = parseInt(v,10); $('capVal').value = cfg.target; });
 
   function getNames(){ return {
     A1:$('a1').value.trim()||'A1', A2:$('a2').value.trim()||'A2',
@@ -333,7 +333,7 @@
 
   $('startBtn').addEventListener('click', ()=>{
     pnames = getNames();
-    cfg.cap = Math.max(parseInt($('capVal').value,10)||cfg.target+4, 2);
+    cfg.cap = Math.max(parseInt($('capVal').value,10)||cfg.target, 2);
     cfg.label = $('gameLabel').value.trim();
     sets=[]; matchSetsA=0; matchSetsB=0; matchFinished=false;
     $('nameA').textContent = pnames.A1+' & '+pnames.A2;
